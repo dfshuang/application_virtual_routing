@@ -2,48 +2,12 @@ import socket
 import os
 from tools import *
 import time
-import multiprocessing
+import threading
 
 
 
 #TODO 和路由信息有关的，登录获取已上线的ip, 
 #随机重组(保证每个路由器只有两个接口，由Tractor分配)
-"""
-
-
-协议详情：
-    Peer与Tractor的通信：
-    1.Peer登陆后向Tractor提交自己的所有文件信息
-        #Peer: (HAVE MESSIZE MSG)
-        #Tractor: (HAVE OK)
-      登录后向控制器注册，由控制器随机分配路由信息
-         
-    2.Peer向Tractor请求所有的文件
-        #Peer: (SHOW)
-        #Tractor (SHOW OK msgSize )FileName, FileName...
-    3.Peer向Tractor请求文件的ip列表
-        #Peer： (GET FileName)
-        #Tractor: (GET OK msgSize) ip,ip,ip...
-    4.路由请求：
-        peer: ROUTE destip
-        Tractor: ROUTE OK MESSIZE
-                 addr[0], ... , destip
-    5.传递数据：
-        peer: TRANS dest msgsize
-              infor
-        another peer: TRANS OK, not print(info)
-        last peer: TRANS OK, print(info)
-
-        #升级用。先不考虑这些吧。
-        #Tractor：GET FAILED
-    
-    Peer与Peer的通信：
-    
-    Peer_Client:(GET FileName offset N)
-    Peer_Server:(GET OK TotalBytes offset) data
-
-
-"""
 
 
 '''

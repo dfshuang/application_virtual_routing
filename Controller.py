@@ -1,10 +1,35 @@
 import socket
 import hashlib
-import multiprocessing
+import threading
 import time
 from tools import *
 
 import os
+
+
+
+
+
+
+
+
+'''
+    每个路由器会保持一个和controller之间的连接。定时发送在线信息并更新路由表。
+    路由器和路由器之间的连接是固定的，但是数据包转发的连接时由路由表决定的。
+    简易IP报文格式:(sourceIp,destinationIp,msgsize)msg
+    注意Router和Controller之间的信息交换应该是通过广播或者底层协议。（这里使用链路层协议，即直接通信）
+
+    Router与Controller之间（链路层协议）：
+    Router:(GET Table)
+    Controller:(GET OK tabsize)table
+
+    Router会通过路由表选择合适的连接转发数据报。
+
+'''
+
+
+
+
 
 
 '''
@@ -16,14 +41,14 @@ import os
 
 class Controller():
 
-    def __init__(self, port=5555, MaxConnect=10):
+    def __init__(self, port=5555, MaxConnect=100):
         """
 
             初始化函数，会根据参数建立socket连接。并设置侦听数量，但是要获得连接，使用recv函数
 
             port=5555:指定端口用于连接
 
-            MaxConnect=5:指定最大连接数 
+            MaxConnect=100:指定最大连接数 
 
             resourceMap: dict, (file(str): [(str(ip)...])
 
