@@ -13,14 +13,14 @@ import os
 
 
 
-'''
+'''错误重复的信息
     每个路由器会保持一个和controller之间的连接。定时发送在线信息并更新路由表。
     路由器和路由器之间的连接是固定的，但是数据包转发的连接时由路由表决定的。
     简易IP报文格式:(sourceIp,destinationIp,msgsize)msg
     注意Router和Controller之间的信息交换应该是通过广播或者底层协议。（这里使用链路层协议，即直接通信）
 
     Router与Controller之间（链路层协议）：
-    Router:(GET Table)
+    Router:(GET Table itemsize)items
     Controller:(GET OK tabsize)table
 
     Router会通过路由表选择合适的连接转发数据报。
@@ -63,41 +63,19 @@ class Controller():
 
         self.serverSocket.listen(MaxConnect)
 
-        # 空字典。resourceName --> ip set
 
-        # 保存资源与IP之间的关系
-
-        mgr = multiprocessing.Manager()
-        self.resourceMap = mgr.dict()
-
-        self.routing_table = dict()
-
-        # 保存存活ip
-
-        self.live = set()
-
-    def recv(self):
-        """
-
-            接受函数。。。
-
-            无参数
-
-            接受连接，并建立相应的线程处理连接。
-
-            线程函数为handle
-
-        """
-
+        #二阶字典。
+        self.routing_table = {}
         while True:
 
             conn, addr = self.serverSocket.accept()          
 
-            p = multiprocessing.Process(target=self.handle, args=(conn, addr, self.resourceMap, ))
+            p = threading.Thread(target=self.handle, args=(conn,addr, ))
 
             p.start()
 
-    def handle(self, conn, addr, resourceMap):
+
+    def handle(self, conn, addr):
         """
 
             处理函数，处理客户端的资源请求与响应
@@ -106,137 +84,28 @@ class Controller():
 
             addr:客户端地址
 
-            一开始要存储客户端本地的文件名，修改resourceMap
-            Peer: HAVE MESSIZE MSG
-            Tractor: HAVE OK
-
             然后修改路由表
-            Peer: ROUT MESSIZE MSG([[srcip, destip, dis]...])
+            Peer: (ROUTE MESSIZE) MSG([[srcip, desti, pdis]...])
             Tractor: SET OK
 
         """
-
-        # 期待从peer获得资源信息。
-
-        # 以下是过程描述
-
-        # Peer: HAVE MESSIZE MSG
-
-        # Tractor: HAVE OK
-
-        # 将客户端的地址加入存活列表，
-
-        self.live.add(addr)
-
-        # 获取头部信息
-
+        self.routing_table[addr] = {}
+        #32位头部信息。链路层协议。
         header = getHeader(conn)
-
-        print(header)
-
-        if header[0:4] == 'HAVE':
-
-            # OK
-
-            msgSize = int(header[5:])
-
-            data = [0 for x in range(msgSize)]
-
-            readNbytes(conn, data, msgSize)
-
-            # 获取得到的资源信息(文件名,文件名)
-
-            msg = bytes(data).decode()
-
-            fileList = msg.split(",")
-
-            # 保存资源与ip的映射关系
-            
-            print(resourceMap)
-
-            for fileName in fileList:
-
-                if fileName not in resourceMap:
-                     resourceMap[fileName] = addr[0]
-                else:
-                    resourceMap[fileName] += ' ' + addr[0]
-                
-            # 发送头部信息
-            print(resourceMap)
-
-            header = 'HAVE OK'.encode('utf8')
-
-            padding = [32 for x in range(HEADER_SIZE - len(header))]
-            
-            conn.sendall(header)
-
-            conn.sendall(bytes(padding))
-
-        else:
-
-            # 应该不可能吧
-
-            pass
-
-        # 至此，客户端只会向跟踪服务器请求资源信息。
-
-        # 阻塞于此。
-
-        while True:
-
-            header = getHeader(conn)
-
-            self.EXEComm(header,conn)
-
-    def replySHOW(self, conn):
-        """
-
-            处理客户端SHOW的请求(下面的并非参数)
-
-            client: SHOW
-
-            Tractor:SHOW OK fileName, fileName...
-
-        """
-
-        # 返回一个资源列表(文件名,文件名)
-
-        send_data = ','.join(list(self.resourceMap.keys())).encode('utf8')
-        header = ('SHOW OK ' + str(len(send_data))).encode('utf8')
-        padding = [32 for x in range(HEADER_SIZE - len(header))]
-        print(header)
-        conn.sendall(header)
-        conn.sendall(bytes(padding))
-        conn.sendall(send_data)
-
-    def replyGET(self, filename, conn):
-        """
-
-            接收客户需要的文件名
-
-            将拥有该文件的peer的ip传给客户
-
-        """
-
-        # 获取拥有文件的对等方的ip
-        filename = filename.strip()
-        iplist = self.resourceMap[filename].split(' ')
+        int megSize = int(header.split(' ')[1])
+        msg = readNbytes(megSize).decode().strip().split(',')
+        #保存计算路由的距离信息。
+        for i in range(msg.size/3):
+            self.routing_table[msg[3*i]][msg[3*i + 1]] = msg[3*i + 2]
         
-        print("junyi1")
-        print(iplist)
-        ipset = ','.join(iplist).encode('utf8')
-        print("junyi2")
-        print(ipset)
-        header = ('GET OK ' + str(len(ipset)) + ' ').encode('utf8')
-        print(header)
 
+        #回复
+        header = "SET OK".encode('utf8')
         padding = [32 for x in range(HEADER_SIZE - len(header))]
+        conn.send(header)
+        conn.send(padding)
 
-        conn.sendall(header)
 
-        conn.sendall(bytes(padding))
-
-        conn.sendall(ipset)
 
     def replyROUTE(self, conn, addr, destip):
         """
@@ -248,19 +117,11 @@ class Controller():
                      addr[0], ... , destip
 
         """
+        
+
         pass 
 
-    def EXEComm(self, header, conn):
-
-        if header[:4] == 'SHOW':
-
-            self.replySHOW(conn)
-
-        elif header[:3] == 'GET':
-
-            filename = header[4:]
-
-            self.replyGET(filename, conn)
+ 
 
 
 if __name__ == '__main__':
