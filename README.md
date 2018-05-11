@@ -22,13 +22,21 @@ centralized_routing
 
       Router -> Controller：WANT ON
 
-      Controller：在上线的IP列表中加入上线的路由器IP，随机选择已上线的IP（个数随机），随机给上线IP和已上线IP赋距离值，生成一个列表 [ [IP, randIP, randDis], .....]
+      ​
 
-      ​	-> all Router：ON msgsize,  msg(上面生成的列表)
+      Controller：随机选择已上线的IP（个数随机）与该新上线ip邻接，并随机设置距离（邻接和距离信息存储在一个邻接表中：map<str,map<str,int>> adjlist）；根据邻接表计算每两个节点间的最短路径，并将结果存储在另一个字典中，map<str,map<str,str>> pathlist，比如ip3=pathlist\[ip1][ip2]表示在ip1到ip2的最短路径中，ip1的下一跳是ip3。这样就生成了每一个路由器的路由表（pathlist[ip1]就是路由器ip1的路由表
+
+      ​	-> all Router：ON msgsize,  msg(该路由器的路由表pathlist[x]��S�N�v0)
 
       all Router：接收信息并修改本地路由表（添加）
 
+      ​
+
+      each Router：接收信息并更新本地路由表
+
       ​	-> Controller：ON finish
+
+      ​
 
       Controller：接收所有的finish信息，接收完成则
 
@@ -38,13 +46,19 @@ centralized_routing
 
       Router -> Controller：WANT OFF
 
-      Controller：在上线的IP列表中删除想下线的路由器IP
+      ​
 
-      ​	-> all Router (except 想要下线的Router)：OFF IP (将下线的IP(字符串存储))
+      Controller：在邻接表中删除想下线的路由器IP，重新计算任意两个节点之间的最短路径，并更新pathlist
 
-      all Router：接收信息并修改本地路由表（删除和此IP有关的路由表项）
+      ​	-> each Router (except 想要下线的Router)：OFF msgsize msg(该路由器的路由表pathlist[x])
+
+      ​
+
+      each Router：接收后，
 
       ​	-> Controller：OFF finish
+
+      ​
 
       Controller：接收所有的finish信息，接收完成则
 
@@ -53,8 +67,8 @@ centralized_routing
    3. 路由表实现：
 
       ```python
-      map<str, map<str, int>>
-      mip[ipsrc][ipdest] = dis
+      map<str, str>  routeList
+      routeList[ipdest] = nextIP
       ```
 
    4. 路由器直接发送数据：
